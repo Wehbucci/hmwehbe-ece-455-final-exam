@@ -1,6 +1,6 @@
 import sys
 from decimal import Decimal
-from math import gcd
+from math import gcd, lcm
 from typing import NamedTuple
 
 TICKS_PER_UNIT = 1000
@@ -42,8 +42,19 @@ def to_ticks(tasks):
     return scaled
 
 
+def priority_order(tasks):
+    """Task indices from highest to lowest... RM priority: shortest period first, ties by index."""
+    return sorted(range(len(tasks)), key=lambda i: (tasks[i].period, i))
+
+
+def hyperperiod(tasks):
+    return lcm(*(task.period for task in tasks))
+
+
 def main():
-    to_ticks(parse_workload(sys.argv[1]))
+    tasks = to_ticks(parse_workload(sys.argv[1]))
+    order = priority_order(tasks)
+    horizon = hyperperiod(tasks)
 
 
 if __name__ == "__main__":
