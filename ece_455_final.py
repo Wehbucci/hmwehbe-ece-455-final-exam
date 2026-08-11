@@ -1,12 +1,15 @@
 import sys
 from decimal import Decimal
+from math import gcd
 from typing import NamedTuple
+
+TICKS_PER_UNIT = 1000
 
 
 class Task(NamedTuple):
-    execution: Decimal
-    period: Decimal
-    deadline: Decimal
+    execution: Decimal | int
+    period: Decimal | int
+    deadline: Decimal | int
 
 
 def parse_workload(path):
@@ -23,8 +26,24 @@ def parse_workload(path):
     return tasks
 
 
+def to_ticks(tasks):
+    """Rescale tasks onto an exact integer time axis, reduced by their common gcd."""
+    scaled = [
+        Task(*(int((v * TICKS_PER_UNIT).to_integral_value()) for v in task))
+        for task in tasks
+    ]
+
+    divisor = 0
+    for task in scaled:
+        for value in task:
+            divisor = gcd(divisor, value)
+    if divisor > 1:
+        scaled = [Task(*(v // divisor for v in task)) for task in scaled]
+    return scaled
+
+
 def main():
-    parse_workload(sys.argv[1])
+    to_ticks(parse_workload(sys.argv[1]))
 
 
 if __name__ == "__main__":
