@@ -1,5 +1,7 @@
 import sys
+from collections import deque
 from decimal import Decimal
+from fractions import Fraction
 from math import gcd, lcm
 from typing import NamedTuple
 
@@ -50,11 +52,45 @@ def priority_order(tasks):
 def hyperperiod(tasks):
     return lcm(*(task.period for task in tasks))
 
+#Calculate total utilization of the tasks
+def utilization(tasks):
+    return sum(Fraction(task.execution, task.period) for task in tasks)
+
+def response_time(task, higher_priority):
+    """Response time analysis for a task given higher priority tasks."""
+    response = task.execution
+    while True:
+        updated = task.execution + sum(
+            -(-response // other.period) * other.execution for other in higher_priority
+        )
+        if updated > task.deadline:
+            return None
+        if updated == response:
+            return response
+        response = updated
+
+
+def definitely_infeasible(tasks):
+    """Check if the task set is definitely infeasible based on utilization and response time analysis."""
+    if utilization(tasks) > 1:
+        return True
+
+    order = priority_order(tasks)
+    for rank, i in enumerate(order):
+        higher_priority = [tasks[j] for j in order[:rank]]
+        if response_time(tasks[i], higher_priority) is None:
+            return True
+    return False
 
 def main():
     tasks = to_ticks(parse_workload(sys.argv[1]))
     order = priority_order(tasks)
     horizon = hyperperiod(tasks)
+    is_infeasible = definitely_infeasible(tasks)
+    response_times = [
+        response_time(tasks[i], [tasks[j] for j in order[:rank]])
+        for rank, i in enumerate(order)
+    ]
 
 
 if __name__ == "__main__":
