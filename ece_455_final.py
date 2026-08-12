@@ -98,6 +98,9 @@ def simulate(tasks):
     Returns (True, preemption counts) if every job released in that window meets
     its deadline, otherwise (False, None).
     """
+    if not tasks:
+        return True, []  # no jobs, so no deadline to miss
+
     order = priority_order(tasks)
     horizon = hyperperiod(tasks)
 
