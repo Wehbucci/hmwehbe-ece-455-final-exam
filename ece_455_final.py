@@ -101,14 +101,15 @@ def simulate(tasks):
     order = priority_order(tasks)
     horizon = hyperperiod(tasks)
 
-    pending = [deque() for _ in tasks]
+    pending = [deque() for _ in tasks]  # a task can have a backlog when D > P
     next_release = [0] * len(tasks)
     preemptions = [0] * len(tasks)
-    outstanding = 0
+    outstanding = 0  # jobs released before the horizon that are still unfinished
     now = 0
     running = None
 
     while True:
+        # Catch up on every release at or before now
         for i, task in enumerate(tasks):
             while next_release[i] <= now:
                 release = next_release[i]
@@ -117,6 +118,7 @@ def simulate(tasks):
                 outstanding += job.within_horizon
                 next_release[i] += task.period
 
+        # Only jobs released inside the first hyperperiod count against feasibility
         for queue in pending:
             for job in queue:
                 if job.within_horizon and now >= job.deadline:
@@ -126,15 +128,17 @@ def simulate(tasks):
         if current is None:
             if now >= horizon and outstanding == 0:
                 return True, preemptions
-            now = min(next_release)
+            now = min(next_release)  # idle, so skip to the next release
             running = None
             continue
 
+        # The previous holder lost the CPU with work left, so it was preempted
         if running is not None and running != current and pending[running]:
             if now < horizon:
                 preemptions[running] += 1
         running = current
 
+        # Run until the job ends, its deadline passes, or anything is released
         job = pending[current][0]
         events = [now + job.remaining, job.deadline, *next_release]
         if now < horizon:
