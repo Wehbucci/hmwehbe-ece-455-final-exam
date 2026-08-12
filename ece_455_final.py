@@ -82,15 +82,81 @@ def definitely_infeasible(tasks):
             return True
     return False
 
-def main():
-    tasks = to_ticks(parse_workload(sys.argv[1]))
+
+class Job:
+    __slots__ = ("remaining", "deadline", "within_horizon")
+
+    def __init__(self, remaining, deadline, within_horizon):
+        self.remaining = remaining
+        self.deadline = deadline
+        self.within_horizon = within_horizon
+
+
+def simulate(tasks):
+    """Run preemptive RM over the first hyperperiod.
+
+    Returns (True, preemption counts) if every job released in that window meets
+    its deadline, otherwise (False, None).
+    """
     order = priority_order(tasks)
     horizon = hyperperiod(tasks)
-    is_infeasible = definitely_infeasible(tasks)
-    response_times = [
-        response_time(tasks[i], [tasks[j] for j in order[:rank]])
-        for rank, i in enumerate(order)
-    ]
+
+    pending = [deque() for _ in tasks]
+    next_release = [0] * len(tasks)
+    preemptions = [0] * len(tasks)
+    outstanding = 0
+    now = 0
+    running = None
+
+    while True:
+        for i, task in enumerate(tasks):
+            while next_release[i] <= now:
+                release = next_release[i]
+                job = Job(task.execution, release + task.deadline, release < horizon)
+                pending[i].append(job)
+                outstanding += job.within_horizon
+                next_release[i] += task.period
+
+        for queue in pending:
+            for job in queue:
+                if job.within_horizon and now >= job.deadline:
+                    return False, None
+
+        current = next((i for i in order if pending[i]), None)
+        if current is None:
+            if now >= horizon and outstanding == 0:
+                return True, preemptions
+            now = min(next_release)
+            running = None
+            continue
+
+        if running is not None and running != current and pending[running]:
+            if now < horizon:
+                preemptions[running] += 1
+        running = current
+
+        job = pending[current][0]
+        events = [now + job.remaining, job.deadline, *next_release]
+        if now < horizon:
+            events.append(horizon)
+        step = min(event for event in events if event > now)
+
+        job.remaining -= step - now
+        now = step
+        if job.remaining == 0:
+            pending[current].popleft()
+            outstanding -= job.within_horizon
+            running = None
+            if now >= horizon and outstanding == 0:
+                return True, preemptions
+
+
+def main():
+    tasks = to_ticks(parse_workload(sys.argv[1]))
+    if definitely_infeasible(tasks):
+        feasible, preemptions = False, None
+    else:
+        feasible, preemptions = simulate(tasks)
 
 
 if __name__ == "__main__":
