@@ -162,6 +162,13 @@ def main():
     else:
         feasible, preemptions = simulate(tasks)
 
+    if feasible:
+        print(1)
+        print(",".join(str(count) for count in preemptions))
+    else:
+        print(0)
+        print()
+
 
 if __name__ == "__main__":
     main()
